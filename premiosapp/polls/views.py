@@ -5,6 +5,8 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from .models import Question, Choice
 from django.views import generic
+from django.utils import timezone
+from django.db.models import Count
 
 # def index(request):
 #     """[polls/views/index]
@@ -24,7 +26,7 @@ class IndexView(generic.ListView):
     context_object_name = "latest_question_list"
 
     def get_queryset(self):
-        return Question.objects.order_by("-pub_date")[:5]
+        return Question.objects.filter(pub_date__lte=timezone.now()).order_by("-pub_date")[:5]
 
 
 # def detail(request, question_id):
@@ -36,13 +38,27 @@ class DetailView(generic.DetailView):
     model = Question
     template_name = "polls/detail.html"
 
+    def get_queryset(self):
+        """This method excludes any question that is not published yet
+        """
+        return Question.objects.filter(pub_date__lte=timezone.now())
+
 # def results(request, question_id):
 #     question = get_object_or_404(Question, pk=question_id)
 #     return render(request, "polls/results.html",{
 #         "question":question
 #     })
 class ResultsView(DetailView):
+    model = Question
     template_name= "polls/results.html"
+
+    def get_queryset(self):
+        """This method excludes any question that is not published yet and have less than 2 Choices
+        """
+        question=Question.objects.filter(pub_date__lte=timezone.now())
+        question = question.alias(entries=Count("choice")).filter(entries__gte=2)
+        return question
+        
 
 def vote(request, question_id):
     question = get_object_or_404(Question, pk=question_id)
